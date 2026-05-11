@@ -1,0 +1,44 @@
+name: Scrape Argenprop
+
+on:
+  schedule:
+    # Cada 6 horas (00:00, 06:00, 12:00, 18:00 UTC)
+    - cron: '0 */6 * * *'
+  workflow_dispatch:        # permite correrlo manualmente desde Actions tab
+
+permissions:
+  contents: write           # necesario para commitear el CSV nuevo
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Argenprop scraper
+        run: python argenprop_v01.py --paginas 15 --output argenprop_prueba.csv
+        env:
+          PYTHONIOENCODING: utf-8
+
+      - name: Commit and push updated CSV
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add argenprop_prueba_todas.csv argenprop_prueba.csv 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "Sin cambios en los CSV, nada que commitear."
+          else
+            git commit -m "Auto-scrape: $(date -u +%Y-%m-%d_%H:%M)"
+            git push
+          fi
